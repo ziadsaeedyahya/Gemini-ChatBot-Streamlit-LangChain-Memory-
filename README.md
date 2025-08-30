@@ -29,5 +29,3 @@ python-dotenv
 langchain
 google-generativeai
 langchain-google-genai
-langchain-google-genai
-google-generativeai
