@@ -1,78 +1,42 @@
-import os
+## Conversational Q&A Chatbot with Gemini
 import streamlit as st
-from dotenv import load_dotenv
 
+from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain, SequentialChain
-from langchain.memory import ConversationBufferMemory
 
-# تحميل الـ API Key
+## Streamlit UI
+st.set_page_config(page_title="Conversational Q&A Chatbot")
+st.header("Hey, Let's Chat")
+
+from dotenv import load_dotenv
 load_dotenv()
-google_api_key = os.getenv("GOOGLE_API_KEY")
+import os
 
-# تعريف LLM (Gemini Flash 1.5)
-llm = ChatGoogleGenerativeAI(
+
+chat = ChatGoogleGenerativeAI(
     model="gemini-1.5-flash",
-    google_api_key=google_api_key,
-    temperature=0.7
+    temperature=0.2,
+    convert_system_message_to_human=True  # علشان يقبل SystemMessage
 )
 
-# Streamlit framework
-st.title('Find Your Favorite Celebrity (Gemini Flash 1.5)')
-input_text = st.text_input("Search the topic you want")
+if 'flowmessages' not in st.session_state:
+    st.session_state['flowmessages'] = [
+        SystemMessage(content="You are a comedian AI assistant")
+    ]
 
-# Prompt Templates
-first_input_prompt = PromptTemplate(
-    input_variables=['name'],
-    template="Tell me about celebrity {name}"
-)
+## Function to load Gemini model and get responses
+def get_chatmodel_response(question):
+    st.session_state['flowmessages'].append(HumanMessage(content=question))
+    answer = chat(st.session_state['flowmessages'])
+    st.session_state['flowmessages'].append(AIMessage(content=answer.content))
+    return answer.content
 
-second_input_prompt = PromptTemplate(
-    input_variables=['person'],
-    template="When was {person} born?"
-)
+input = st.text_input("Input: ", key="input")
+response = get_chatmodel_response(input)
 
-third_input_prompt = PromptTemplate(
-    input_variables=['dob'],
-    template="Mention 5 major events happened around {dob} in the world."
-)
+submit = st.button("Ask the question")
 
-# Memory
-person_memory = ConversationBufferMemory(input_key='name', memory_key='chat_history')
-dob_memory = ConversationBufferMemory(input_key='person', memory_key='chat_history')
-descr_memory = ConversationBufferMemory(input_key='dob', memory_key='description_history')
-
-# Chains
-chain1 = LLMChain(
-    llm=llm, prompt=first_input_prompt,
-    verbose=True, output_key='person', memory=person_memory
-)
-
-chain2 = LLMChain(
-    llm=llm, prompt=second_input_prompt,
-    verbose=True, output_key='dob', memory=dob_memory
-)
-
-chain3 = LLMChain(
-    llm=llm, prompt=third_input_prompt,
-    verbose=True, output_key='description', memory=descr_memory
-)
-
-parent_chain = SequentialChain(
-    chains=[chain1, chain2, chain3],
-    input_variables=['name'],
-    output_variables=['person', 'dob', 'description'],
-    verbose=True
-)
-
-# Run the chatbot
-if input_text:
-    output = parent_chain({'name': input_text})
-    st.write(output)
-
-    with st.expander('Person Name'):
-        st.info(person_memory.buffer)
-
-    with st.expander('Major Events'):
-        st.info(descr_memory.buffer)
+## If ask button is clicked
+if submit:
+    st.subheader("The Response is")
+    st.write(response)
